@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarGoCarAPI.Data;
@@ -103,12 +105,18 @@ public class RidesController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateRide([FromBody] CreateRideRequest request)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         var car = await _db.Cars.FindAsync(request.CarId);
         if (car == null)
             return BadRequest(new { error = "Car not found" });
+
+        if (car.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         var ride = new Ride
         {
@@ -133,13 +141,18 @@ public class RidesController : ControllerBase
         return CreatedAtAction(nameof(GetRide), new { id = ride.Id }, new { ride.Id, message = "Ride created" });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateRide(int id, [FromBody] UpdateRideRequest request)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
         var ride = await _db.Rides.FindAsync(id);
         
         if (ride == null)
             return NotFound(new { error = "Ride not found" });
+
+        if (ride.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         if (request.DepartureTime != default) ride.DepartureTime = request.DepartureTime;
         if (request.AvailableSeats > 0) ride.AvailableSeats = request.AvailableSeats;
@@ -151,13 +164,18 @@ public class RidesController : ControllerBase
         return Ok(new { message = "Ride updated" });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> CancelRide(int id)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
         var ride = await _db.Rides.FindAsync(id);
         
         if (ride == null)
             return NotFound(new { error = "Ride not found" });
+
+        if (ride.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         ride.Status = "Cancelled";
         ride.UpdatedAt = DateTime.UtcNow;
@@ -166,13 +184,18 @@ public class RidesController : ControllerBase
         return Ok(new { message = "Ride cancelled" });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpPost("{id}/stops")]
     public async Task<IActionResult> AddStop(int id, [FromBody] AddStopRequest request)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
         var ride = await _db.Rides.Include(r => r.Stops).FirstOrDefaultAsync(r => r.Id == id);
         
         if (ride == null)
             return NotFound(new { error = "Ride not found" });
+
+        if (ride.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         if (!ride.AllowsStops)
             return BadRequest(new { error = "This ride does not allow stops" });

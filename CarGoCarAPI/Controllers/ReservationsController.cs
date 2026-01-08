@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarGoCarAPI.Data;
@@ -13,15 +15,27 @@ public class ReservationsController : ControllerBase
 
     public ReservationsController(AppDbContext db) => _db = db;
 
+    [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetReservations([FromQuery] int? passengerId)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var isAdmin = User.IsInRole("Admin");
+
         var query = _db.Reservations
             .Include(r => r.Ride)
             .AsQueryable();
 
         if (passengerId.HasValue)
+        {
+            if (passengerId.Value != currentUserId && !isAdmin)
+                return Forbid();
             query = query.Where(r => r.PassengerId == passengerId.Value);
+        }
+        else if (!isAdmin)
+        {
+            query = query.Where(r => r.PassengerId == currentUserId);
+        }
 
         var reservations = await query
             .Select(r => new
@@ -39,9 +53,12 @@ public class ReservationsController : ControllerBase
         return Ok(reservations);
     }
 
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetReservation(int id)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         var reservation = await _db.Reservations
             .Include(r => r.Ride)
                 .ThenInclude(ride => ride.Driver)
@@ -50,6 +67,11 @@ public class ReservationsController : ControllerBase
 
         if (reservation == null)
             return NotFound(new { error = "Reservation not found" });
+
+        if (reservation.PassengerId != currentUserId && 
+            reservation.Ride.DriverId != currentUserId && 
+            !User.IsInRole("Admin"))
+            return Forbid();
 
         return Ok(new
         {
@@ -78,9 +100,16 @@ public class ReservationsController : ControllerBase
         });
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> CreateReservation([FromBody] CreateReservationRequest request)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var passengerId = request.PassengerId > 0 ? request.PassengerId : currentUserId;
+
+        if (passengerId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
+
         var ride = await _db.Rides.FindAsync(request.RideId);
         
         if (ride == null)
@@ -92,10 +121,13 @@ public class ReservationsController : ControllerBase
         if (ride.Status != "Scheduled")
             return BadRequest(new { error = "Ride is not available for booking" });
 
+        if (ride.DriverId == passengerId)
+            return BadRequest(new { error = "Cannot book your own ride" });
+
         var reservation = new Reservation
         {
             RideId = request.RideId,
-            PassengerId = request.PassengerId,
+            PassengerId = passengerId,
             NumberOfSeats = request.NumberOfSeats,
             PickupLocation = request.PickupLocation ?? ride.FromLocation,
             DropoffLocation = ride.ToLocation,
@@ -120,15 +152,21 @@ public class ReservationsController : ControllerBase
         });
     }
 
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> CancelReservation(int id)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         var reservation = await _db.Reservations
             .Include(r => r.Ride)
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (reservation == null)
             return NotFound(new { error = "Reservation not found" });
+
+        if (reservation.PassengerId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         if (reservation.Status == "Cancelled")
             return BadRequest(new { error = "Reservation already cancelled" });
@@ -142,9 +180,19 @@ public class ReservationsController : ControllerBase
         return Ok(new { message = "Reservation cancelled" });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpGet("ride/{rideId}")]
     public async Task<IActionResult> GetRideReservations(int rideId)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var ride = await _db.Rides.FindAsync(rideId);
+
+        if (ride == null)
+            return NotFound(new { error = "Ride not found" });
+
+        if (ride.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
+
         var reservations = await _db.Reservations
             .Where(r => r.RideId == rideId)
             .Include(r => r.Passenger)
@@ -162,13 +210,21 @@ public class ReservationsController : ControllerBase
         return Ok(reservations);
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpPost("{id}/confirm")]
     public async Task<IActionResult> ConfirmReservation(int id)
     {
-        var reservation = await _db.Reservations.FindAsync(id);
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        var reservation = await _db.Reservations
+            .Include(r => r.Ride)
+            .FirstOrDefaultAsync(r => r.Id == id);
 
         if (reservation == null)
             return NotFound(new { error = "Reservation not found" });
+
+        if (reservation.Ride.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         reservation.Status = "Confirmed";
         reservation.IsDriverConfirmed = true;

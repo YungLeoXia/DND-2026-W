@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarGoCarAPI.Data;
 using CarGoCarAPI.Models;
+using CarGoCarAPI.Services;
 
 namespace CarGoCarAPI.Controllers;
 
@@ -10,8 +11,13 @@ namespace CarGoCarAPI.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly JwtService _jwt;
 
-    public AuthController(AppDbContext db) => _db = db;
+    public AuthController(AppDbContext db, JwtService jwt)
+    {
+        _db = db;
+        _jwt = jwt;
+    }
 
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -49,10 +55,14 @@ public class AuthController : ControllerBase
         if (!user.IsActive)
             return Unauthorized(new { error = "Account disabled" });
 
+        var token = _jwt.GenerateToken(user);
+
         return Ok(new { 
-            token = $"token_{user.Id}_{DateTime.UtcNow.Ticks}",
+            token,
             userId = user.Id,
-            role = user.Role
+            role = user.Role,
+            firstName = user.FirstName,
+            lastName = user.LastName
         });
     }
 

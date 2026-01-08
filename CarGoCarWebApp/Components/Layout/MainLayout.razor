@@ -52,6 +52,7 @@
             @if (Auth.IsAuthenticated)
             {
                 <div class="user-info">
+                    <div style="font-weight: 500; margin-bottom: 4px;">@Auth.FirstName @Auth.LastName</div>
                     <span class="role-badge @Auth.UserRole?.ToLower()">@Auth.UserRole</span>
                 </div>
                 <button class="btn-logout" @onclick="Logout">Logout</button>

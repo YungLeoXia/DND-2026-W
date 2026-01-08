@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 
 namespace CarGoCarWebApp.Services;
 
@@ -9,6 +10,9 @@ public class AuthService
     public int? UserId { get; private set; }
     public string? UserRole { get; private set; }
     public string? Token { get; private set; }
+    public string? FirstName { get; private set; }
+    public string? LastName { get; private set; }
+    
     public bool IsAuthenticated => UserId.HasValue;
     public bool IsAdmin => UserRole == "Admin";
     public bool IsDriver => UserRole == "Driver";
@@ -28,6 +32,14 @@ public class AuthService
             UserId = result?.UserId;
             UserRole = result?.Role;
             Token = result?.Token;
+            FirstName = result?.FirstName;
+            LastName = result?.LastName;
+            
+            if (!string.IsNullOrEmpty(Token))
+            {
+                _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            }
+            
             OnAuthStateChanged?.Invoke();
             return (true, null);
         }
@@ -52,6 +64,9 @@ public class AuthService
         UserId = null;
         UserRole = null;
         Token = null;
+        FirstName = null;
+        LastName = null;
+        _http.DefaultRequestHeaders.Authorization = null;
         OnAuthStateChanged?.Invoke();
     }
 
@@ -60,6 +75,8 @@ public class AuthService
         public string? Token { get; set; }
         public int UserId { get; set; }
         public string? Role { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
     }
 
     private class ErrorResponse
@@ -67,4 +84,3 @@ public class AuthService
         public string? Error { get; set; }
     }
 }
-

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarGoCarAPI.Data;
@@ -6,6 +7,7 @@ namespace CarGoCarAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -21,6 +23,8 @@ public class AdminController : ControllerBase
                 u.Id,
                 u.Email,
                 Name = $"{u.FirstName} {u.LastName}",
+                u.FirstName,
+                u.LastName,
                 u.Role,
                 u.IsActive,
                 u.IsEmailVerified,

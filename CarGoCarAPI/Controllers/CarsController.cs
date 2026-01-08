@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarGoCarAPI.Data;
@@ -67,16 +69,20 @@ public class CarsController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateCar([FromBody] CreateCarRequest request)
     {
-        var driver = await _db.Users.FindAsync(request.DriverId);
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var driverId = request.DriverId > 0 ? request.DriverId : currentUserId;
+
+        var driver = await _db.Users.FindAsync(driverId);
         if (driver == null)
             return BadRequest(new { error = "Driver not found" });
 
         var car = new Car
         {
-            DriverId = request.DriverId,
+            DriverId = driverId,
             Make = request.Make,
             Model = request.Model,
             Year = request.Year,
@@ -94,13 +100,18 @@ public class CarsController : ControllerBase
         return CreatedAtAction(nameof(GetCar), new { id = car.Id }, new { car.Id, message = "Car created" });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateCar(int id, [FromBody] UpdateCarRequest request)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
         var car = await _db.Cars.FindAsync(id);
         
         if (car == null)
             return NotFound(new { error = "Car not found" });
+
+        if (car.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         if (!string.IsNullOrEmpty(request.Make)) car.Make = request.Make;
         if (!string.IsNullOrEmpty(request.Model)) car.Model = request.Model;
@@ -114,13 +125,18 @@ public class CarsController : ControllerBase
         return Ok(new { message = "Car updated" });
     }
 
+    [Authorize(Roles = "Driver,Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCar(int id)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
         var car = await _db.Cars.FindAsync(id);
         
         if (car == null)
             return NotFound(new { error = "Car not found" });
+
+        if (car.DriverId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
 
         _db.Cars.Remove(car);
         await _db.SaveChangesAsync();

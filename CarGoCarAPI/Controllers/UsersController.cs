@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarGoCarAPI.Data;
@@ -34,6 +36,7 @@ public class UsersController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetAllUsers()
     {
@@ -53,9 +56,16 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var isAdmin = User.IsInRole("Admin");
+        
+        if (currentUserId != id && !isAdmin)
+            return Forbid();
+
         var user = await _db.Users.FindAsync(id);
         
         if (user == null)
@@ -71,9 +81,16 @@ public class UsersController : ControllerBase
         return Ok(new { message = "User updated" });
     }
 
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(int id)
     {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var isAdmin = User.IsInRole("Admin");
+        
+        if (currentUserId != id && !isAdmin)
+            return Forbid();
+
         var user = await _db.Users.FindAsync(id);
         
         if (user == null)
@@ -85,6 +102,7 @@ public class UsersController : ControllerBase
         return Ok(new { message = "User deleted" });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("{id}/disable")]
     public async Task<IActionResult> DisableUser(int id)
     {
