@@ -1,69 +1,99 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using CarGoCarAPI.Data;
+using CarGoCarAPI.Models;
 
-namespace CarGoCarAPI.Controllers
+namespace CarGoCarAPI.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AuthController : ControllerBase
+    private readonly AppDbContext _db;
+
+    public AuthController(AppDbContext db) => _db = db;
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        /// <summary>
-        /// Register a new user account
-        /// </summary>
-        [HttpPost("register")]
-        public IActionResult Register([FromBody] RegisterRequest request)
-        {
-            // TODO: Implement registration logic
-            return Ok(new { message = "User registered successfully" });
-        }
+        if (await _db.Users.AnyAsync(u => u.Email == request.Email))
+            return BadRequest(new { error = "Email already registered" });
 
-        /// <summary>
-        /// Login with email and password
-        /// </summary>
-        [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        var user = new User
         {
-            // TODO: Implement login logic
-            return Ok(new { token = "jwt_token_here" });
-        }
+            Email = request.Email,
+            PasswordHash = request.Password,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Role = "Passenger",
+            IsEmailVerified = false,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
-        /// <summary>
-        /// Logout the current user
-        /// </summary>
-        [HttpPost("logout")]
-        public IActionResult Logout()
-        {
-            // TODO: Implement logout logic
-            return Ok(new { message = "Logged out successfully" });
-        }
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
 
-        /// <summary>
-        /// Verify email address
-        /// </summary>
-        [HttpPost("verify-email")]
-        public IActionResult VerifyEmail([FromBody] VerifyEmailRequest request)
-        {
-            // TODO: Implement email verification
-            return Ok(new { message = "Email verified successfully" });
-        }
+        return Ok(new { message = "Registration successful", userId = user.Id });
     }
 
-    public class RegisterRequest
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        
+        if (user == null || user.PasswordHash != request.Password)
+            return Unauthorized(new { error = "Invalid credentials" });
+
+        if (!user.IsActive)
+            return Unauthorized(new { error = "Account disabled" });
+
+        return Ok(new { 
+            token = $"token_{user.Id}_{DateTime.UtcNow.Ticks}",
+            userId = user.Id,
+            role = user.Role
+        });
     }
 
-    public class LoginRequest
+    [HttpPost("logout")]
+    public IActionResult Logout()
     {
-        public string Email { get; set; }
-        public string Password { get; set; }
+        return Ok(new { message = "Logged out" });
     }
 
-    public class VerifyEmailRequest
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
     {
-        public string Email { get; set; }
-        public string VerificationCode { get; set; }
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        
+        if (user == null)
+            return NotFound(new { error = "User not found" });
+
+        user.IsEmailVerified = true;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Email verified" });
     }
+}
+
+public class RegisterRequest
+{
+    public string Email { get; set; } = "";
+    public string Password { get; set; } = "";
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
+}
+
+public class LoginRequest
+{
+    public string Email { get; set; } = "";
+    public string Password { get; set; } = "";
+}
+
+public class VerifyEmailRequest
+{
+    public string Email { get; set; } = "";
+    public string VerificationCode { get; set; } = "";
 }

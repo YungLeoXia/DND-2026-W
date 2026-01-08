@@ -1,4 +1,0 @@
-@baseUrl = https://localhost:7001
-
-### Get sample
-GET {{baseUrl}}/api/sample

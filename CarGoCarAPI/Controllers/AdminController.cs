@@ -1,101 +1,145 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using CarGoCarAPI.Data;
 
-namespace CarGoCarAPI.Controllers
+namespace CarGoCarAPI.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AdminController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AdminController : ControllerBase
+    private readonly AppDbContext _db;
+
+    public AdminController(AppDbContext db) => _db = db;
+
+    [HttpGet("users")]
+    public async Task<IActionResult> GetAllUsers()
     {
-        /// <summary>
-        /// Get all users (Admin only)
-        /// </summary>
-        [HttpGet("users")]
-        public IActionResult GetAllUsers()
-        {
-            // TODO: Implement getting all users
-            return Ok(new[] { new { id = 1, name = "User 1", email = "user1@example.com", role = "passenger" } });
-        }
-
-        /// <summary>
-        /// Disable a user account (Admin only)
-        /// </summary>
-        [HttpPost("users/{id}/disable")]
-        public IActionResult DisableUser(int id)
-        {
-            // TODO: Implement user disabling
-            return Ok(new { message = "User disabled successfully" });
-        }
-
-        /// <summary>
-        /// Enable a user account (Admin only)
-        /// </summary>
-        [HttpPost("users/{id}/enable")]
-        public IActionResult EnableUser(int id)
-        {
-            // TODO: Implement user enabling
-            return Ok(new { message = "User enabled successfully" });
-        }
-
-        /// <summary>
-        /// Get all rides for moderation (Admin only)
-        /// </summary>
-        [HttpGet("rides")]
-        public IActionResult GetAllRides()
-        {
-            // TODO: Implement getting all rides
-            return Ok(new[] { new { id = 1, driver = "John Doe", from = "City A", to = "City B", status = "active" } });
-        }
-
-        /// <summary>
-        /// Remove a ride (Admin only)
-        /// </summary>
-        [HttpDelete("rides/{id}")]
-        public IActionResult RemoveRide(int id)
-        {
-            // TODO: Implement ride removal
-            return Ok(new { message = "Ride removed successfully" });
-        }
-
-        /// <summary>
-        /// Get platform statistics (Admin only)
-        /// </summary>
-        [HttpGet("statistics")]
-        public IActionResult GetStatistics()
-        {
-            // TODO: Implement statistics retrieval
-            return Ok(new
+        var users = await _db.Users
+            .Select(u => new
             {
-                totalUsers = 100,
-                totalRides = 50,
-                activeRides = 10,
-                totalReservations = 200
-            });
-        }
+                u.Id,
+                u.Email,
+                Name = $"{u.FirstName} {u.LastName}",
+                u.Role,
+                u.IsActive,
+                u.IsEmailVerified,
+                u.CreatedAt
+            })
+            .ToListAsync();
 
-        /// <summary>
-        /// Get reported issues (Admin only)
-        /// </summary>
-        [HttpGet("reports")]
-        public IActionResult GetReports()
-        {
-            // TODO: Implement getting reports
-            return Ok(new[] { new { id = 1, rideId = 1, reason = "Driver behavior", status = "pending" } });
-        }
-
-        /// <summary>
-        /// Resolve a report (Admin only)
-        /// </summary>
-        [HttpPost("reports/{id}/resolve")]
-        public IActionResult ResolveReport(int id, [FromBody] ResolveReportRequest request)
-        {
-            // TODO: Implement report resolution
-            return Ok(new { message = "Report resolved" });
-        }
+        return Ok(users);
     }
 
-    public class ResolveReportRequest
+    [HttpPost("users/{id}/disable")]
+    public async Task<IActionResult> DisableUser(int id)
     {
-        public string Resolution { get; set; }
-        public string Action { get; set; }
+        var user = await _db.Users.FindAsync(id);
+        
+        if (user == null)
+            return NotFound(new { error = "User not found" });
+
+        if (user.Role == "Admin")
+            return BadRequest(new { error = "Cannot disable admin users" });
+
+        user.IsActive = false;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "User disabled" });
     }
+
+    [HttpPost("users/{id}/enable")]
+    public async Task<IActionResult> EnableUser(int id)
+    {
+        var user = await _db.Users.FindAsync(id);
+        
+        if (user == null)
+            return NotFound(new { error = "User not found" });
+
+        user.IsActive = true;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "User enabled" });
+    }
+
+    [HttpGet("rides")]
+    public async Task<IActionResult> GetAllRides()
+    {
+        var rides = await _db.Rides
+            .Include(r => r.Driver)
+            .Select(r => new
+            {
+                r.Id,
+                DriverName = $"{r.Driver.FirstName} {r.Driver.LastName}",
+                r.FromLocation,
+                r.ToLocation,
+                r.DepartureTime,
+                r.Status,
+                r.AvailableSeats,
+                r.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(rides);
+    }
+
+    [HttpDelete("rides/{id}")]
+    public async Task<IActionResult> RemoveRide(int id)
+    {
+        var ride = await _db.Rides.FindAsync(id);
+        
+        if (ride == null)
+            return NotFound(new { error = "Ride not found" });
+
+        _db.Rides.Remove(ride);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Ride removed" });
+    }
+
+    [HttpGet("statistics")]
+    public async Task<IActionResult> GetStatistics()
+    {
+        var stats = new
+        {
+            TotalUsers = await _db.Users.CountAsync(),
+            ActiveUsers = await _db.Users.CountAsync(u => u.IsActive),
+            Drivers = await _db.Users.CountAsync(u => u.Role == "Driver"),
+            Passengers = await _db.Users.CountAsync(u => u.Role == "Passenger"),
+            TotalRides = await _db.Rides.CountAsync(),
+            ActiveRides = await _db.Rides.CountAsync(r => r.Status == "Scheduled"),
+            CompletedRides = await _db.Rides.CountAsync(r => r.Status == "Completed"),
+            TotalReservations = await _db.Reservations.CountAsync(),
+            ConfirmedReservations = await _db.Reservations.CountAsync(r => r.Status == "Confirmed"),
+            TotalCars = await _db.Cars.CountAsync()
+        };
+
+        return Ok(stats);
+    }
+
+    [HttpPost("users/{id}/role")]
+    public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleRequest request)
+    {
+        var user = await _db.Users.FindAsync(id);
+        
+        if (user == null)
+            return NotFound(new { error = "User not found" });
+
+        var validRoles = new[] { "Admin", "Driver", "Passenger" };
+        if (!validRoles.Contains(request.Role))
+            return BadRequest(new { error = "Invalid role" });
+
+        user.Role = request.Role;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = $"User role updated to {request.Role}" });
+    }
+}
+
+public class UpdateRoleRequest
+{
+    public string Role { get; set; } = "";
 }
