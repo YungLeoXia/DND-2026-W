@@ -1,11 +1,14 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
+using CarGoCarWebApp.Components;
+using CarGoCarWebApp.Services;
 
-var builder = WebApplicationBuilder.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
-// Add services
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5000") });
+builder.Services.AddScoped<ApiService>();
+builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 

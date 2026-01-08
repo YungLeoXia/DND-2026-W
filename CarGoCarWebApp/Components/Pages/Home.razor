@@ -1,0 +1,80 @@
+@page "/"
+@inject ApiService Api
+@inject AuthService Auth
+
+<h1>Welcome to CarGoCar</h1>
+
+<p style="color: var(--text-dim); margin-bottom: 32px;">
+    Find affordable rides or offer your empty seats. Travel together, save money.
+</p>
+
+@if (!Auth.IsAuthenticated)
+{
+    <div class="card" style="margin-bottom: 32px;">
+        <h2>Get Started</h2>
+        <p style="color: var(--text-dim); margin-bottom: 16px;">
+            Join our community to book rides or become a driver.
+        </p>
+        <a href="/register" class="btn btn-primary">Create Account</a>
+        <a href="/login" class="btn btn-secondary" style="margin-left: 8px;">Sign In</a>
+    </div>
+}
+
+<h2>Available Rides</h2>
+
+@if (_loading)
+{
+    <div class="loading"><div class="spinner"></div></div>
+}
+else if (_rides == null || !_rides.Any())
+{
+    <div class="empty-state">
+        <div class="icon">🚗</div>
+        <p>No rides available at the moment</p>
+    </div>
+}
+else
+{
+    <div class="card-grid">
+        @foreach (var ride in _rides.Take(6))
+        {
+            <div class="ride-card">
+                <div class="ride-route">
+                    <span>@ride.FromLocation</span>
+                    <span class="arrow">→</span>
+                    <span>@ride.ToLocation</span>
+                </div>
+                <div class="ride-meta">
+                    <span>📅 @ride.DepartureTime.ToString("MMM dd, HH:mm")</span>
+                    <span>👤 @ride.DriverName</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="ride-price">@ride.PricePerSeat kr</span>
+                        <span class="ride-seats"> / seat</span>
+                    </div>
+                    <span class="ride-seats">@ride.AvailableSeats seats left</span>
+                </div>
+                <a href="/rides/@ride.Id" class="btn btn-primary" style="width: 100%; margin-top: 16px; justify-content: center;">
+                    View Details
+                </a>
+            </div>
+        }
+    </div>
+    
+    <div style="text-align: center; margin-top: 24px;">
+        <a href="/rides" class="btn btn-secondary">View All Rides</a>
+    </div>
+}
+
+@code {
+    private List<RideDto>? _rides;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rides = await Api.GetAsync<List<RideDto>>("rides");
+        _loading = false;
+    }
+}
+

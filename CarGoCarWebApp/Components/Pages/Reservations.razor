@@ -1,0 +1,82 @@
+@page "/reservations"
+@inject ApiService Api
+@inject AuthService Auth
+
+<h1>My Bookings</h1>
+
+@if (!Auth.IsAuthenticated)
+{
+    <div class="alert alert-error">Please sign in to view your bookings.</div>
+}
+else
+{
+    @if (_loading)
+    {
+        <div class="loading"><div class="spinner"></div></div>
+    }
+    else if (_reservations == null || !_reservations.Any())
+    {
+        <div class="empty-state">
+            <div class="icon">🎫</div>
+            <p>You don't have any bookings yet</p>
+            <a href="/rides" class="btn btn-primary" style="margin-top: 16px;">Find a Ride</a>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Route</th>
+                        <th>Date</th>
+                        <th>Seats</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var res in _reservations)
+                    {
+                        <tr>
+                            <td>@res.RideInfo</td>
+                            <td>@res.DepartureTime.ToString("MMM dd, HH:mm")</td>
+                            <td>@res.NumberOfSeats</td>
+                            <td style="font-weight: 600; color: var(--accent);">@res.TotalPrice kr</td>
+                            <td><span class="status-badge status-@res.Status.ToLower()">@res.Status</span></td>
+                            <td>
+                                <a href="/rides/@res.RideId" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">View Ride</a>
+                                @if (res.Status == "Pending" || res.Status == "Confirmed")
+                                {
+                                    <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" @onclick="() => CancelReservation(res.Id)">Cancel</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private List<ReservationDto>? _reservations;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsAuthenticated && Auth.UserId.HasValue)
+        {
+            _reservations = await Api.GetAsync<List<ReservationDto>>($"reservations?passengerId={Auth.UserId}");
+        }
+        _loading = false;
+    }
+
+    private async Task CancelReservation(int id)
+    {
+        await Api.DeleteAsync($"reservations/{id}");
+        _reservations = _reservations?.Where(r => r.Id != id).ToList();
+    }
+}
+

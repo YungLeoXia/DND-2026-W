@@ -1,0 +1,203 @@
+@page "/admin"
+@inject ApiService Api
+@inject AuthService Auth
+
+<h1>Admin Panel</h1>
+
+@if (!Auth.IsAdmin)
+{
+    <div class="alert alert-error">You don't have permission to access this page.</div>
+}
+else
+{
+    @if (_stats != null)
+    {
+        <div class="stats-grid" style="margin-bottom: 32px;">
+            <div class="stat-card">
+                <div class="stat-value">@_stats.TotalUsers</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">@_stats.Drivers</div>
+                <div class="stat-label">Drivers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">@_stats.Passengers</div>
+                <div class="stat-label">Passengers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">@_stats.TotalRides</div>
+                <div class="stat-label">Total Rides</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">@_stats.ActiveRides</div>
+                <div class="stat-label">Active Rides</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">@_stats.TotalReservations</div>
+                <div class="stat-label">Reservations</div>
+            </div>
+        </div>
+    }
+
+    <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+        <button class="btn @(_tab == "users" ? "btn-primary" : "btn-secondary")" @onclick="ShowUsers">Users</button>
+        <button class="btn @(_tab == "rides" ? "btn-primary" : "btn-secondary")" @onclick="ShowRides">Rides</button>
+    </div>
+
+    @if (_tab == "users")
+    {
+        <div class="card">
+            <h2>All Users</h2>
+            @if (_users != null)
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in _users)
+                        {
+                            <tr>
+                                <td>@user.Id</td>
+                                <td>@user.Email</td>
+                                <td>@user.FirstName @user.LastName</td>
+                                <td><span class="role-badge @user.Role.ToLower()">@user.Role</span></td>
+                                <td>
+                                    @if (user.IsActive)
+                                    {
+                                        <span style="color: var(--success);">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: var(--danger);">Disabled</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (user.Role != "Admin")
+                                    {
+                                        @if (user.IsActive)
+                                        {
+                                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" @onclick="() => DisableUser(user.Id)">Disable</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" @onclick="() => EnableUser(user.Id)">Enable</button>
+                                        }
+                                        <select style="padding: 4px 8px; font-size: 12px;" @onchange="e => ChangeRole(user.Id, e.Value?.ToString())">
+                                            <option value="">Change Role</option>
+                                            <option value="Driver">Driver</option>
+                                            <option value="Passenger">Passenger</option>
+                                        </select>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (_tab == "rides")
+    {
+        <div class="card">
+            <h2>All Rides</h2>
+            @if (_rides != null)
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Route</th>
+                            <th>Driver</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ride in _rides)
+                        {
+                            <tr>
+                                <td>@ride.Id</td>
+                                <td>@ride.FromLocation → @ride.ToLocation</td>
+                                <td>@ride.DriverName</td>
+                                <td>@ride.DepartureTime.ToString("MMM dd, HH:mm")</td>
+                                <td><span class="status-badge status-@ride.Status?.ToLower()">@ride.Status</span></td>
+                                <td>
+                                    <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" @onclick="() => DeleteRide(ride.Id)">Remove</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+}
+
+@code {
+    private StatsDto? _stats;
+    private List<UserDto>? _users;
+    private List<AdminRideDto>? _rides;
+    private string _tab = "users";
+
+    private void ShowUsers() => _tab = "users";
+    private void ShowRides() => _tab = "rides";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsAdmin)
+        {
+            _stats = await Api.GetAsync<StatsDto>("admin/statistics");
+            _users = await Api.GetAsync<List<UserDto>>("admin/users");
+            _rides = await Api.GetAsync<List<AdminRideDto>>("admin/rides");
+        }
+    }
+
+    private async Task DisableUser(int id)
+    {
+        await Api.PostAsync($"admin/users/{id}/disable", new { });
+        var user = _users?.FirstOrDefault(u => u.Id == id);
+        if (user != null) user.IsActive = false;
+    }
+
+    private async Task EnableUser(int id)
+    {
+        await Api.PostAsync($"admin/users/{id}/enable", new { });
+        var user = _users?.FirstOrDefault(u => u.Id == id);
+        if (user != null) user.IsActive = true;
+    }
+
+    private async Task ChangeRole(int id, string? role)
+    {
+        if (string.IsNullOrEmpty(role)) return;
+        await Api.PostAsync($"admin/users/{id}/role", new { role });
+        var user = _users?.FirstOrDefault(u => u.Id == id);
+        if (user != null) user.Role = role;
+    }
+
+    private async Task DeleteRide(int id)
+    {
+        await Api.DeleteAsync($"admin/rides/{id}");
+        _rides = _rides?.Where(r => r.Id != id).ToList();
+    }
+
+    private class AdminRideDto
+    {
+        public int Id { get; set; }
+        public string DriverName { get; set; } = "";
+        public string FromLocation { get; set; } = "";
+        public string ToLocation { get; set; } = "";
+        public DateTime DepartureTime { get; set; }
+        public string? Status { get; set; }
+    }
+}

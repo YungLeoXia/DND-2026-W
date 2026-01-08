@@ -74,23 +74,23 @@ public class AppDbContext : DbContext
 
         var rides = new[]
         {
-            new Ride { Id = 1, DriverId = 2, CarId = 1, FromLocation = "New York", ToLocation = "Boston", DepartureTime = now.AddDays(1), TotalSeats = 4, AvailableSeats = 3, PricePerSeat = 45.00m, Status = "Scheduled", AllowsStops = true, CreatedAt = now, UpdatedAt = now },
-            new Ride { Id = 2, DriverId = 2, CarId = 2, FromLocation = "Boston", ToLocation = "Philadelphia", DepartureTime = now.AddDays(2), TotalSeats = 5, AvailableSeats = 4, PricePerSeat = 55.00m, Status = "Scheduled", AllowsStops = true, CreatedAt = now, UpdatedAt = now },
-            new Ride { Id = 3, DriverId = 3, CarId = 3, FromLocation = "Chicago", ToLocation = "Detroit", DepartureTime = now.AddDays(3), TotalSeats = 4, AvailableSeats = 2, PricePerSeat = 35.00m, Status = "Scheduled", AllowsStops = false, CreatedAt = now, UpdatedAt = now },
+            new Ride { Id = 1, DriverId = 2, CarId = 1, FromLocation = "København", ToLocation = "Aarhus", DepartureTime = now.AddDays(1), TotalSeats = 4, AvailableSeats = 3, PricePerSeat = 150.00m, Status = "Scheduled", AllowsStops = true, CreatedAt = now, UpdatedAt = now },
+            new Ride { Id = 2, DriverId = 2, CarId = 2, FromLocation = "Aarhus", ToLocation = "Aalborg", DepartureTime = now.AddDays(2), TotalSeats = 5, AvailableSeats = 4, PricePerSeat = 120.00m, Status = "Scheduled", AllowsStops = true, CreatedAt = now, UpdatedAt = now },
+            new Ride { Id = 3, DriverId = 3, CarId = 3, FromLocation = "Odense", ToLocation = "København", DepartureTime = now.AddDays(3), TotalSeats = 4, AvailableSeats = 2, PricePerSeat = 130.00m, Status = "Scheduled", AllowsStops = false, CreatedAt = now, UpdatedAt = now },
         };
         modelBuilder.Entity<Ride>().HasData(rides);
 
         var reservations = new[]
         {
-            new Reservation { Id = 1, RideId = 1, PassengerId = 4, NumberOfSeats = 1, PickupLocation = "New York", DropoffLocation = "Boston", TotalPrice = 45.00m, Status = "Confirmed", IsDriverConfirmed = true, BookingTime = now, CreatedAt = now, UpdatedAt = now },
-            new Reservation { Id = 2, RideId = 3, PassengerId = 4, NumberOfSeats = 2, PickupLocation = "Chicago", DropoffLocation = "Detroit", TotalPrice = 70.00m, Status = "Pending", IsDriverConfirmed = false, BookingTime = now, CreatedAt = now, UpdatedAt = now },
+            new Reservation { Id = 1, RideId = 1, PassengerId = 4, NumberOfSeats = 1, PickupLocation = "København", DropoffLocation = "Aarhus", TotalPrice = 150.00m, Status = "Confirmed", IsDriverConfirmed = true, BookingTime = now, CreatedAt = now, UpdatedAt = now },
+            new Reservation { Id = 2, RideId = 3, PassengerId = 4, NumberOfSeats = 2, PickupLocation = "Odense", DropoffLocation = "København", TotalPrice = 260.00m, Status = "Pending", IsDriverConfirmed = false, BookingTime = now, CreatedAt = now, UpdatedAt = now },
         };
         modelBuilder.Entity<Reservation>().HasData(reservations);
 
         var stops = new[]
         {
-            new Stop { Id = 1, RideId = 1, Location = "Hartford", Latitude = 41.7658m, Longitude = -72.6734m, ScheduledArrivalTime = now.AddDays(1).AddHours(2), StopOrder = 1, IsOptional = true, CreatedAt = now, UpdatedAt = now },
-            new Stop { Id = 2, RideId = 2, Location = "New Haven", Latitude = 41.3083m, Longitude = -72.9279m, ScheduledArrivalTime = now.AddDays(2).AddHours(1), StopOrder = 1, IsOptional = false, CreatedAt = now, UpdatedAt = now },
+            new Stop { Id = 1, RideId = 1, Location = "Odense", Latitude = 55.4038m, Longitude = 10.4024m, ScheduledArrivalTime = now.AddDays(1).AddHours(1), StopOrder = 1, IsOptional = true, CreatedAt = now, UpdatedAt = now },
+            new Stop { Id = 2, RideId = 2, Location = "Randers", Latitude = 56.4607m, Longitude = 10.0362m, ScheduledArrivalTime = now.AddDays(2).AddHours(1), StopOrder = 1, IsOptional = false, CreatedAt = now, UpdatedAt = now },
         };
         modelBuilder.Entity<Stop>().HasData(stops);
     }

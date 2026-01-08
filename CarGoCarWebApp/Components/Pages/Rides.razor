@@ -1,0 +1,75 @@
+@page "/rides"
+@inject ApiService Api
+
+<h1>Find a Ride</h1>
+
+<div class="search-bar">
+    <input @bind="_fromFilter" @bind:event="oninput" placeholder="Fra (f.eks. København)" />
+    <input @bind="_toFilter" @bind:event="oninput" placeholder="Til (f.eks. Aarhus)" />
+    <button class="btn btn-primary" @onclick="Search">Search</button>
+</div>
+
+@if (_loading)
+{
+    <div class="loading"><div class="spinner"></div></div>
+}
+else if (_rides == null || !_rides.Any())
+{
+    <div class="empty-state">
+        <div class="icon">🔍</div>
+        <p>No rides found matching your criteria</p>
+    </div>
+}
+else
+{
+    <div class="card-grid">
+        @foreach (var ride in _rides)
+        {
+            <div class="ride-card">
+                <div class="ride-route">
+                    <span>@ride.FromLocation</span>
+                    <span class="arrow">→</span>
+                    <span>@ride.ToLocation</span>
+                </div>
+                <div class="ride-meta">
+                    <span>📅 @ride.DepartureTime.ToString("MMM dd, HH:mm")</span>
+                    <span>👤 @ride.DriverName</span>
+                    <span>🚗 @ride.CarInfo</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="ride-price">@ride.PricePerSeat kr</span>
+                        <span class="ride-seats"> / seat</span>
+                    </div>
+                    <span class="ride-seats">@ride.AvailableSeats seats left</span>
+                </div>
+                <a href="/rides/@ride.Id" class="btn btn-primary" style="width: 100%; margin-top: 16px; justify-content: center;">
+                    View & Book
+                </a>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<RideDto>? _rides;
+    private bool _loading = true;
+    private string _fromFilter = "";
+    private string _toFilter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Search();
+    }
+
+    private async Task Search()
+    {
+        _loading = true;
+        var query = "rides?";
+        if (!string.IsNullOrEmpty(_fromFilter)) query += $"from={_fromFilter}&";
+        if (!string.IsNullOrEmpty(_toFilter)) query += $"to={_toFilter}&";
+        _rides = await Api.GetAsync<List<RideDto>>(query.TrimEnd('&', '?'));
+        _loading = false;
+    }
+}
+

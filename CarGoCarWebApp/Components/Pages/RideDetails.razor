@@ -1,0 +1,166 @@
+@page "/rides/{Id:int}"
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="loading"><div class="spinner"></div></div>
+}
+else if (_ride == null)
+{
+    <div class="empty-state">
+        <div class="icon">❌</div>
+        <p>Ride not found</p>
+    </div>
+}
+else
+{
+    <div style="margin-bottom: 16px;">
+        <a href="/rides" style="color: var(--accent); text-decoration: none;">← Back to rides</a>
+    </div>
+
+    <div class="card">
+        <div class="ride-route" style="font-size: 28px;">
+            <span>@_ride.FromLocation</span>
+            <span class="arrow">→</span>
+            <span>@_ride.ToLocation</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin: 24px 0;">
+            <div>
+                <div style="color: var(--text-dim); font-size: 13px;">DEPARTURE</div>
+                <div style="font-size: 18px;">@_ride.DepartureTime.ToString("dddd, MMM dd")</div>
+                <div style="font-size: 24px; font-weight: 600;">@_ride.DepartureTime.ToString("HH:mm")</div>
+            </div>
+            <div>
+                <div style="color: var(--text-dim); font-size: 13px;">PRICE PER SEAT</div>
+                <div class="ride-price" style="font-size: 32px;">@_ride.PricePerSeat kr</div>
+            </div>
+            <div>
+                <div style="color: var(--text-dim); font-size: 13px;">AVAILABLE SEATS</div>
+                <div style="font-size: 24px; font-weight: 600;">@_ride.AvailableSeats / @_ride.TotalSeats</div>
+            </div>
+        </div>
+
+        @if (_ride.Driver != null)
+        {
+            <div style="padding: 16px; background: var(--bg-dark); border-radius: 8px; margin-bottom: 16px;">
+                <div style="color: var(--text-dim); font-size: 13px; margin-bottom: 8px;">DRIVER</div>
+                <div style="font-size: 18px; font-weight: 500;">@_ride.Driver.Name</div>
+                @if (!string.IsNullOrEmpty(_ride.Driver.PhoneNumber))
+                {
+                    <div style="color: var(--text-dim);">📞 @_ride.Driver.PhoneNumber</div>
+                }
+            </div>
+        }
+
+        @if (_ride.Car != null)
+        {
+            <div style="padding: 16px; background: var(--bg-dark); border-radius: 8px; margin-bottom: 16px;">
+                <div style="color: var(--text-dim); font-size: 13px; margin-bottom: 8px;">VEHICLE</div>
+                <div style="font-size: 18px; font-weight: 500;">@_ride.Car.Info</div>
+                <div style="color: var(--text-dim);">@_ride.Car.Color • @_ride.Car.LicensePlate</div>
+            </div>
+        }
+
+        @if (_ride.Stops?.Any() == true)
+        {
+            <div style="margin-bottom: 16px;">
+                <div style="color: var(--text-dim); font-size: 13px; margin-bottom: 8px;">STOPS</div>
+                @foreach (var stop in _ride.Stops)
+                {
+                    <div style="padding: 8px 12px; background: var(--bg-dark); border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                        <span>@stop.Location</span>
+                        <span style="color: var(--text-dim);">@stop.ScheduledArrivalTime.ToString("HH:mm")</span>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_ride.Description))
+        {
+            <div style="color: var(--text-dim); margin-bottom: 16px;">@_ride.Description</div>
+        }
+    </div>
+
+    @if (Auth.IsAuthenticated && _ride.AvailableSeats > 0)
+    {
+        <div class="card">
+            <h2>Book This Ride</h2>
+            
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-error">@_error</div>
+            }
+            @if (_bookingSuccess)
+            {
+                <div class="alert alert-success">Booking confirmed! Check your reservations.</div>
+            }
+            
+            <div class="form-group">
+                <label>Number of Seats</label>
+                <select @bind="_seats">
+                    @for (int i = 1; i <= Math.Min(_ride.AvailableSeats, 4); i++)
+                    {
+                        <option value="@i">@i sæde@(i > 1 ? "r" : "") - @(i * _ride.PricePerSeat) kr</option>
+                    }
+                </select>
+            </div>
+            
+            <button class="btn btn-primary" @onclick="BookRide" disabled="@_booking">
+                @if (_booking) { <span>Booking...</span> } else { <span>Confirm Booking</span> }
+            </button>
+        </div>
+    }
+    else if (!Auth.IsAuthenticated)
+    {
+        <div class="card">
+            <p style="color: var(--text-dim); margin-bottom: 16px;">Sign in to book this ride</p>
+            <a href="/login" class="btn btn-primary">Sign In</a>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    
+    private RideDetailDto? _ride;
+    private bool _loading = true;
+    private int _seats = 1;
+    private bool _booking;
+    private string? _error;
+    private bool _bookingSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ride = await Api.GetAsync<RideDetailDto>($"rides/{Id}");
+        _loading = false;
+    }
+
+    private async Task BookRide()
+    {
+        _error = null;
+        _booking = true;
+        
+        var response = await Api.PostAsync("reservations", new
+        {
+            rideId = Id,
+            passengerId = Auth.UserId,
+            numberOfSeats = _seats
+        });
+        
+        if (response.IsSuccessStatusCode)
+        {
+            _bookingSuccess = true;
+            if (_ride != null) _ride.AvailableSeats -= _seats;
+        }
+        else
+        {
+            _error = "Failed to book ride. Please try again.";
+        }
+        
+        _booking = false;
+    }
+}
+

@@ -1,0 +1,231 @@
+@baseUrl = http://localhost:5000
+@jsonType = application/json
+
+### ========================================
+### AUTH ENDPOINTS
+### ========================================
+
+### Register new user
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{jsonType}}
+
+{
+  "email": "newuser@test.com",
+  "password": "test123",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Login (seeded user)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{jsonType}}
+
+{
+  "email": "john@example.com",
+  "password": "pass123"
+}
+
+### Login as admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{jsonType}}
+
+{
+  "email": "admin@cargocar.com",
+  "password": "admin123"
+}
+
+### Verify email
+POST {{baseUrl}}/api/auth/verify-email
+Content-Type: {{jsonType}}
+
+{
+  "email": "alice@example.com",
+  "verificationCode": "123456"
+}
+
+### Logout
+POST {{baseUrl}}/api/auth/logout
+
+### ========================================
+### USERS ENDPOINTS
+### ========================================
+
+### Get all users
+GET {{baseUrl}}/api/users
+
+### Get user by ID
+GET {{baseUrl}}/api/users/2
+
+### Update user
+PUT {{baseUrl}}/api/users/2
+Content-Type: {{jsonType}}
+
+{
+  "firstName": "Johnny",
+  "phoneNumber": "+1555123456"
+}
+
+### Disable user
+POST {{baseUrl}}/api/users/4/disable
+
+### Delete user (careful!)
+# DELETE {{baseUrl}}/api/users/5
+
+### ========================================
+### CARS ENDPOINTS
+### ========================================
+
+### Get all cars
+GET {{baseUrl}}/api/cars
+
+### Get cars for driver
+GET {{baseUrl}}/api/cars?driverId=2
+
+### Get car by ID
+GET {{baseUrl}}/api/cars/1
+
+### Create car
+POST {{baseUrl}}/api/cars
+Content-Type: {{jsonType}}
+
+{
+  "driverId": 3,
+  "make": "Tesla",
+  "model": "Model 3",
+  "year": 2023,
+  "licensePlate": "EV-0001",
+  "seats": 4,
+  "color": "White"
+}
+
+### Update car
+PUT {{baseUrl}}/api/cars/1
+Content-Type: {{jsonType}}
+
+{
+  "color": "Metallic Silver"
+}
+
+### Delete car
+# DELETE {{baseUrl}}/api/cars/3
+
+### ========================================
+### RIDES ENDPOINTS
+### ========================================
+
+### Get all available rides
+GET {{baseUrl}}/api/rides
+
+### Search rides (from location)
+GET {{baseUrl}}/api/rides?from=København
+
+### Search rides (from + to)
+GET {{baseUrl}}/api/rides?from=Aarhus&to=Aalborg
+
+### Search rides (min seats)
+GET {{baseUrl}}/api/rides?minSeats=3
+
+### Get ride by ID
+GET {{baseUrl}}/api/rides/1
+
+### Get driver's rides
+GET {{baseUrl}}/api/rides/driver/2
+
+### Create ride
+POST {{baseUrl}}/api/rides
+Content-Type: {{jsonType}}
+
+{
+  "carId": 1,
+  "fromLocation": "Esbjerg",
+  "toLocation": "Kolding",
+  "departureTime": "2026-01-15T09:00:00Z",
+  "availableSeats": 3,
+  "price": 80.00,
+  "description": "Morgentur, aircondition"
+}
+
+### Update ride
+PUT {{baseUrl}}/api/rides/1
+Content-Type: {{jsonType}}
+
+{
+  "price": 50.00,
+  "description": "Price reduced!"
+}
+
+### Add stop to ride
+POST {{baseUrl}}/api/rides/1/stops
+Content-Type: {{jsonType}}
+
+{
+  "location": "Vejle",
+  "arrivalTime": "2026-01-10T12:00:00Z"
+}
+
+### Cancel ride
+# DELETE {{baseUrl}}/api/rides/2
+
+### ========================================
+### RESERVATIONS ENDPOINTS
+### ========================================
+
+### Get all reservations
+GET {{baseUrl}}/api/reservations
+
+### Get reservations for passenger
+GET {{baseUrl}}/api/reservations?passengerId=4
+
+### Get reservation by ID
+GET {{baseUrl}}/api/reservations/1
+
+### Get reservations for ride
+GET {{baseUrl}}/api/reservations/ride/1
+
+### Create reservation
+POST {{baseUrl}}/api/reservations
+Content-Type: {{jsonType}}
+
+{
+  "rideId": 2,
+  "passengerId": 5,
+  "numberOfSeats": 2,
+  "pickupLocation": "Aarhus Centrum"
+}
+
+### Confirm reservation (driver action)
+POST {{baseUrl}}/api/reservations/2/confirm
+
+### Cancel reservation
+# DELETE {{baseUrl}}/api/reservations/1
+
+### ========================================
+### ADMIN ENDPOINTS
+### ========================================
+
+### Get all users (admin view)
+GET {{baseUrl}}/api/admin/users
+
+### Get all rides (admin view)
+GET {{baseUrl}}/api/admin/rides
+
+### Get platform statistics
+GET {{baseUrl}}/api/admin/statistics
+
+### Disable user
+POST {{baseUrl}}/api/admin/users/5/disable
+
+### Enable user
+POST {{baseUrl}}/api/admin/users/5/enable
+
+### Update user role
+POST {{baseUrl}}/api/admin/users/4/role
+Content-Type: {{jsonType}}
+
+{
+  "role": "Driver"
+}
+
+### Remove ride (admin)
+# DELETE {{baseUrl}}/api/admin/rides/3
+

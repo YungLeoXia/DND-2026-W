@@ -1,0 +1,87 @@
+@page "/driver/rides"
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<h1>My Rides</h1>
+
+@if (!Auth.IsDriver)
+{
+    <div class="alert alert-error">You must be a driver to access this page.</div>
+}
+else
+{
+    <div style="margin-bottom: 24px;">
+        <a href="/driver/rides/new" class="btn btn-primary">+ Create New Ride</a>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading"><div class="spinner"></div></div>
+    }
+    else if (_rides == null || !_rides.Any())
+    {
+        <div class="empty-state">
+            <div class="icon">🚗</div>
+            <p>You haven't created any rides yet</p>
+            <a href="/driver/rides/new" class="btn btn-primary" style="margin-top: 16px;">Create Your First Ride</a>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Route</th>
+                        <th>Date</th>
+                        <th>Seats</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ride in _rides)
+                    {
+                        <tr>
+                            <td>@ride.FromLocation → @ride.ToLocation</td>
+                            <td>@ride.DepartureTime.ToString("MMM dd, HH:mm")</td>
+                            <td>@ride.AvailableSeats available</td>
+                            <td>@ride.PricePerSeat kr</td>
+                            <td><span class="status-badge status-@ride.Status?.ToLower()">@ride.Status</span></td>
+                            <td>
+                                <a href="/rides/@ride.Id" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">View</a>
+                                @if (ride.Status == "Scheduled")
+                                {
+                                    <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" @onclick="() => CancelRide(ride.Id)">Cancel</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private List<RideDto>? _rides;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsDriver && Auth.UserId.HasValue)
+        {
+            _rides = await Api.GetAsync<List<RideDto>>($"rides/driver/{Auth.UserId}");
+        }
+        _loading = false;
+    }
+
+    private async Task CancelRide(int rideId)
+    {
+        await Api.DeleteAsync($"rides/{rideId}");
+        _rides = _rides?.Where(r => r.Id != rideId).ToList();
+    }
+}
+

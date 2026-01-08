@@ -1,0 +1,144 @@
+@page "/driver/rides/new"
+@inject ApiService Api
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<h1>Create a Ride</h1>
+
+@if (!Auth.IsDriver)
+{
+    <div class="alert alert-error">You must be a driver to create rides.</div>
+}
+else
+{
+    <div class="card" style="max-width: 600px;">
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-error">@_error</div>
+        }
+
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+            <div class="form-group">
+                <label>Car</label>
+                <select @bind="_model.CarId">
+                    <option value="0">Select a car</option>
+                    @if (_cars != null)
+                    {
+                        @foreach (var car in _cars)
+                        {
+                            <option value="@car.Id">@car.Year @car.Make @car.Model (@car.TotalSeats seats)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>Fra</label>
+                    <InputText @bind-Value="_model.FromLocation" placeholder="f.eks. København" />
+                </div>
+                <div class="form-group">
+                    <label>Til</label>
+                    <InputText @bind-Value="_model.ToLocation" placeholder="f.eks. Aarhus" />
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>Date</label>
+                    <InputDate @bind-Value="_model.Date" />
+                </div>
+                <div class="form-group">
+                    <label>Time</label>
+                    <InputText @bind-Value="_model.Time" placeholder="09:00" />
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>Available Seats</label>
+                    <InputNumber @bind-Value="_model.AvailableSeats" />
+                </div>
+                <div class="form-group">
+                    <label>Price per Seat ($)</label>
+                    <InputNumber @bind-Value="_model.Price" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <InputTextArea @bind-Value="_model.Description" rows="3" placeholder="Any additional info..." />
+            </div>
+
+            <button type="submit" class="btn btn-primary" disabled="@_loading">
+                @if (_loading) { <span>Creating...</span> } else { <span>Create Ride</span> }
+            </button>
+            <a href="/driver/rides" class="btn btn-secondary" style="margin-left: 8px;">Cancel</a>
+        </EditForm>
+    </div>
+}
+
+@code {
+    private CreateRideModel _model = new() { Date = DateTime.Today.AddDays(1), Time = "09:00", AvailableSeats = 3, Price = 100 };
+    private List<CarListDto>? _cars;
+    private string? _error;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsDriver && Auth.UserId.HasValue)
+        {
+            _cars = await Api.GetAsync<List<CarListDto>>($"cars?driverId={Auth.UserId}");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_model.CarId == 0)
+        {
+            _error = "Please select a car";
+            return;
+        }
+
+        _error = null;
+        _loading = true;
+
+        if (!TimeSpan.TryParse(_model.Time, out var time))
+        {
+            _error = "Invalid time format. Use HH:mm";
+            _loading = false;
+            return;
+        }
+
+        var response = await Api.PostAsync("rides", new
+        {
+            carId = _model.CarId,
+            fromLocation = _model.FromLocation,
+            toLocation = _model.ToLocation,
+            departureTime = _model.Date.Add(time),
+            availableSeats = _model.AvailableSeats,
+            price = _model.Price,
+            description = _model.Description
+        });
+
+        if (response.IsSuccessStatusCode)
+            Nav.NavigateTo("/driver/rides");
+        else
+            _error = "Failed to create ride";
+
+        _loading = false;
+    }
+
+    private class CreateRideModel
+    {
+        public int CarId { get; set; }
+        public string FromLocation { get; set; } = "";
+        public string ToLocation { get; set; } = "";
+        public DateTime Date { get; set; }
+        public string Time { get; set; } = "";
+        public int AvailableSeats { get; set; }
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+    }
+}
+

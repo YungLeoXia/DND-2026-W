@@ -1,0 +1,184 @@
+@page "/driver/cars"
+@inject ApiService Api
+@inject AuthService Auth
+
+<h1>My Cars</h1>
+
+@if (!Auth.IsDriver)
+{
+    <div class="alert alert-error">You must be a driver to access this page.</div>
+}
+else
+{
+    <div style="margin-bottom: 24px;">
+        <button class="btn btn-primary" @onclick="() => _showForm = true">+ Add Car</button>
+    </div>
+
+    @if (_showForm)
+    {
+        <div class="card" style="max-width: 500px; margin-bottom: 24px;">
+            <h2>@(_editingCar == null ? "Add New Car" : "Edit Car")</h2>
+            
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-error">@_error</div>
+            }
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>Make</label>
+                    <input @bind="_form.Make" placeholder="Toyota" />
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <input @bind="_form.Model" placeholder="Camry" />
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>Year</label>
+                    <input type="number" @bind="_form.Year" />
+                </div>
+                <div class="form-group">
+                    <label>Seats</label>
+                    <input type="number" @bind="_form.Seats" />
+                </div>
+                <div class="form-group">
+                    <label>Color</label>
+                    <input @bind="_form.Color" placeholder="Silver" />
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>License Plate</label>
+                <input @bind="_form.LicensePlate" placeholder="ABC-1234" />
+            </div>
+            
+            <button class="btn btn-primary" @onclick="SaveCar">Save</button>
+            <button class="btn btn-secondary" @onclick="CancelForm" style="margin-left: 8px;">Cancel</button>
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <div class="loading"><div class="spinner"></div></div>
+    }
+    else if (_cars == null || !_cars.Any())
+    {
+        <div class="empty-state">
+            <div class="icon">🚙</div>
+            <p>You haven't added any cars yet</p>
+        </div>
+    }
+    else
+    {
+        <div class="card-grid">
+            @foreach (var car in _cars)
+            {
+                <div class="card">
+                    <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">
+                        @car.Year @car.Make @car.Model
+                    </div>
+                    <div style="color: var(--text-dim); margin-bottom: 12px;">
+                        <div>🎨 @car.Color</div>
+                        <div>🪧 @car.LicensePlate</div>
+                        <div>💺 @car.TotalSeats seats</div>
+                    </div>
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" @onclick="() => EditCar(car)">Edit</button>
+                    <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" @onclick="() => DeleteCar(car.Id)">Delete</button>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<CarListDto>? _cars;
+    private bool _loading = true;
+    private bool _showForm;
+    private CarListDto? _editingCar;
+    private CarForm _form = new();
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCars();
+    }
+
+    private async Task LoadCars()
+    {
+        if (Auth.IsDriver && Auth.UserId.HasValue)
+        {
+            _cars = await Api.GetAsync<List<CarListDto>>($"cars?driverId={Auth.UserId}");
+        }
+        _loading = false;
+    }
+
+    private void EditCar(CarListDto car)
+    {
+        _editingCar = car;
+        _form = new CarForm
+        {
+            Make = car.Make,
+            Model = car.Model,
+            Year = car.Year,
+            Seats = car.TotalSeats,
+            Color = car.Color,
+            LicensePlate = car.LicensePlate
+        };
+        _showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        _showForm = false;
+        _editingCar = null;
+        _form = new();
+        _error = null;
+    }
+
+    private async Task SaveCar()
+    {
+        _error = null;
+        
+        if (_editingCar != null)
+        {
+            await Api.PutAsync($"cars/{_editingCar.Id}", _form);
+        }
+        else
+        {
+            await Api.PostAsync("cars", new
+            {
+                driverId = Auth.UserId,
+                make = _form.Make,
+                model = _form.Model,
+                year = _form.Year,
+                seats = _form.Seats,
+                color = _form.Color,
+                licensePlate = _form.LicensePlate
+            });
+        }
+        
+        CancelForm();
+        _loading = true;
+        await LoadCars();
+    }
+
+    private async Task DeleteCar(int id)
+    {
+        await Api.DeleteAsync($"cars/{id}");
+        _cars = _cars?.Where(c => c.Id != id).ToList();
+    }
+
+    private class CarForm
+    {
+        public string Make { get; set; } = "";
+        public string Model { get; set; } = "";
+        public int Year { get; set; } = DateTime.Now.Year;
+        public int Seats { get; set; } = 4;
+        public string Color { get; set; } = "";
+        public string LicensePlate { get; set; } = "";
+    }
+}
+

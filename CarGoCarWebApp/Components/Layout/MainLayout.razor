@@ -1,0 +1,84 @@
+@inherits LayoutComponentBase
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<div class="app-container">
+    <nav class="sidebar">
+        <div class="brand">
+            <span class="brand-icon">🚗</span>
+            <span class="brand-text">CarGoCar</span>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/" class="nav-link">
+                <span class="icon">🏠</span> Home
+            </a>
+            <a href="/rides" class="nav-link">
+                <span class="icon">🔍</span> Find Rides
+            </a>
+
+            @if (Auth.IsAuthenticated)
+            {
+                @if (Auth.IsDriver)
+                {
+                    <a href="/driver/rides" class="nav-link">
+                        <span class="icon">📋</span> My Rides
+                    </a>
+                    <a href="/driver/rides/new" class="nav-link">
+                        <span class="icon">➕</span> Create Ride
+                    </a>
+                    <a href="/driver/cars" class="nav-link">
+                        <span class="icon">🚙</span> My Cars
+                    </a>
+                }
+                
+                @if (Auth.IsPassenger || Auth.IsDriver)
+                {
+                    <a href="/reservations" class="nav-link">
+                        <span class="icon">🎫</span> My Bookings
+                    </a>
+                }
+                
+                @if (Auth.IsAdmin)
+                {
+                    <a href="/admin" class="nav-link">
+                        <span class="icon">⚙️</span> Admin Panel
+                    </a>
+                }
+            }
+        </div>
+        
+        <div class="auth-section">
+            @if (Auth.IsAuthenticated)
+            {
+                <div class="user-info">
+                    <span class="role-badge @Auth.UserRole?.ToLower()">@Auth.UserRole</span>
+                </div>
+                <button class="btn-logout" @onclick="Logout">Logout</button>
+            }
+            else
+            {
+                <a href="/login" class="btn-login">Login</a>
+                <a href="/register" class="btn-register">Register</a>
+            }
+        </div>
+    </nav>
+    
+    <main class="main-content">
+        @Body
+    </main>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.OnAuthStateChanged += StateHasChanged;
+    }
+
+    private void Logout()
+    {
+        Auth.Logout();
+        Nav.NavigateTo("/");
+    }
+}
+
